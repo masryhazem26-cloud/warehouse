@@ -1,0 +1,69 @@
+// warehouse.types.ts
+interface WarehouseItem {
+  sku: string;
+  name: string;
+  quantity: number;
+  location: string; // e.g. "A1-B3"
+}
+
+interface Warehouse {
+  id: string;
+  name: string;
+  items: Map<string, WarehouseItem>;
+}
+
+// commands/add-stock.command.ts
+class AddStockCommand {
+  constructor(
+    public readonly warehouseId: string,
+    public readonly sku: string,
+    public readonly name: string,
+    public readonly quantity: number,
+    public readonly location: string
+  ) {
+    if (quantity <= 0) {
+      throw new Error("Quantity must be greater than zero");
+    }
+  }
+}
+
+// handlers/add-stock.handler.ts
+class AddStockHandler {
+  constructor(private warehouses: Map<string, Warehouse>) {}
+
+  execute(command: AddStockCommand): void {
+    const warehouse = this.warehouses.get(command.warehouseId);
+    if (!warehouse) {
+      throw new Error(`Warehouse ${command.warehouseId} not found`);
+    }
+
+    const existing = warehouse.items.get(command.sku);
+
+    if (existing) {
+      existing.quantity += command.quantity;
+    } else {
+      warehouse.items.set(command.sku, {
+        sku: command.sku,
+        name: command.name,
+        quantity: command.quantity,
+        location: command.location,
+      });
+    }
+
+    console.log(
+      `Added ${command.quantity} of ${command.sku} to ${warehouse.name} (${command.location})`
+    );
+  }
+}
+
+// --- usage example ---
+const warehouses = new Map<string, Warehouse>([
+  ["wh-01", { id: "wh-01", name: "Main Distribution Center", items: new Map() }],
+]);
+
+const handler = new AddStockHandler(warehouses);
+
+const cmd = new AddStockCommand("wh-01", "SKU-1001", "Steel Bolt 8mm", 500, "A1-B3");
+handler.execute(cmd);
+
+console.log(warehouses.get("wh-01")?.items.get("SKU-1001"));
