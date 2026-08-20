@@ -1,0 +1,102 @@
+export type Metric = {
+  expression: string;
+  alias?: string;
+};
+
+export type Filter = {
+  column: string;
+  operator: "=" | "!=" | ">" | ">=" | "<" | "<=" | "IN" | "BETWEEN";
+  value: string | number | (string | number)[];
+};
+
+export type Window = "DAY" | "WEEK" | "MONTH" | "QUARTER" | "YEAR";
+
+export class WarehouseQueryBuilder {
+  private fromTable: string = "";
+  private metrics: Metric[] = [];
+  private filters: Filter[] = [];
+  private groupByColumns: string[] = [];
+  private orderByColumns: string[] = [];
+  private limitRows?: number;
+
+  from(table: string): this {
+    this.fromTable = table;
+    return this;
+  }
+
+  select(expression: string, alias?: string): this {
+    this.metrics.push({ expression, alias });
+    return this;
+  }
+
+  where(filter: Filter): this {
+    this.filters.push(filter);
+    return this;
+  }
+
+  groupBy(column: string): this {
+    this.groupByColumns.push(column);
+    return this;
+  }
+
+  timeBucket(window: Window, column: string, alias = "bucket"): this {
+    this.metrics.push({
+      expression: `DATE_TRUNC('${window}', ${this.quote(column)})`,
+      alias,
+    });
+    return this;
+  }
+
+  orderBy(column: string, direction: "ASC" | "DESC" = "ASC"): this {
+    this.orderByColumns.push(`${this.quote(column)} ${direction}`);
+    return this;
+  }
+
+  limit(rows: number): this {
+    this.limitRows = rows;
+    return this;
+  }
+
+  build(): string {
+    const select = this.metrics.length
+      ? this.metrics
+          .map((m) =>
+            m.alias ? `${m.expression} AS ${this.quote(m.alias)}` : m.expression,
+          )
+          .join(", ")
+      : "*";
+
+    const sql = [
+      `SELECT ${select}`,
+      `FROM ${this.fromTable}`,
+      this.filters.length ? `WHERE ${this.filters.map((f) => this.renderFilter(f)).join(" AND ")}` : "",
+      this.groupByColumns.length ? `GROUP BY ${this.groupByColumns.map((c) => this.quote(c)).join(", ")}` : "",
+      this.orderByColumns.length ? `ORDER BY ${this.orderByColumns.join(", ")}` : "",
+      this.limitRows !== undefined ? `LIMIT ${this.limitRows}` : "",
+    ].filter(Boolean);
+
+    return sql.join("\n") + ";";
+  }
+
+  private quote(identifier: string): string {
+    return `"${identifier.replace(/"/g, '""')}"`;
+  }
+
+  private renderFilter(f: Filter): string {
+    const col = this.quote(f.column);
+    switch (f.operator) {
+      case "IN":
+        return `${col} IN (${(f.value as (string | number)[]).map((v) => this.literal(v)).join(", ")})`;
+      case "BETWEEN": {
+        const [lo, hi] = f.value as [string | number, string | number];
+        return `${col} BETWEEN ${this.literal(lo)} AND ${this.literal(hi)}`;
+      }
+      default:
+        return `${col} ${f.operator} ${this.literal(f.value as string | number)}`;
+    }
+  }
+
+  private literal(value: string | number): string {
+    return typeof value === "number" ? String(value) : `'${value.replace(/'/g, "''")}'`;
+  }
+}
