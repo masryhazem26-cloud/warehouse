@@ -1,0 +1,27 @@
+warehouse-service/
+├── src/
+│   ├── domain/
+│   │   ├── warehouse.types.ts       # Warehouse & WarehouseItem interfaces
+│   │   └── warehouse.entity.ts      # Core domain logic (optional)
+│   │
+│   ├── commands/
+│   │   ├── add-stock.command.ts     # AddStockCommand class
+│   │   ├── remove-stock.command.ts  # RemoveStockCommand class
+│   │   └── transfer-stock.command.ts
+│   │
+│   ├── handlers/
+│   │   ├── add-stock.handler.ts     # AddStockHandler class
+│   │   ├── remove-stock.handler.ts
+│   │   └── transfer-stock.handler.ts
+│   │
+│   ├── repositories/
+│   │   └── warehouse.repository.ts  # Data access (in-memory / DB)
+│   │
+│   ├── index.ts                     # Entry point / wiring
+│   │
+├── tests/
+│   └── add-stock.handler.spec.ts
+│
+├── package.json
+├── tsconfig.json
+└── README.md
